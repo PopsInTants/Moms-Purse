@@ -8,7 +8,7 @@ export default function Landing() {
         <div className="hero-bg" />
         <div className="hero-content">
           <div className="hero-badge">
-            <Sparkles size={14} /> Your safety net when there's no store around
+            <Sparkles size={14} /> Your neighborhood, always prepared
           </div>
           <h1>What's in <em>Mom's Purse?</em></h1>
           <p className="hero-sub">

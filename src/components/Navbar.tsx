@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from '../lib/auth';
-import { Handbag, LogOut, Menu, X } from 'lucide-react';
+import { Handbag, LogOut, Menu, X, Map } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Navbar() {
@@ -31,6 +31,7 @@ export default function Navbar() {
           {user ? (
             <>
               <Link to="/browse" onClick={() => setMenuOpen(false)}>Browse</Link>
+              <Link to="/map" onClick={() => setMenuOpen(false)}><Map size={14} /> Map</Link>
               {profile?.role === 'mom' && (
                 <Link to="/dashboard" onClick={() => setMenuOpen(false)}>My Purse</Link>
               )}

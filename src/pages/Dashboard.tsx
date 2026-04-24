@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Item, MomProfile, ItemCategory } from '../lib/types';
 import { CATEGORY_LABELS, CATEGORY_ICONS } from '../lib/types';
-import { Plus, X, MapPin, CreditCard as Edit3, ShoppingBag, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, X, MapPin, CreditCard as Edit3, ShoppingBag, ToggleLeft, ToggleRight, Star, Shield, Phone } from 'lucide-react';
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -13,26 +13,21 @@ export default function Dashboard() {
   const [showAddItem, setShowAddItem] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
 
-  // Add item form
   const [itemName, setItemName] = useState('');
   const [itemDesc, setItemDesc] = useState('');
   const [itemCategory, setItemCategory] = useState<ItemCategory>('general');
   const [itemTip, setItemTip] = useState('');
 
-  // Edit profile form
   const [bio, setBio] = useState('');
   const [locationName, setLocationName] = useState('');
+  const [phone, setPhone] = useState('');
 
   useEffect(() => {
-    if (profile?.id) {
-      fetchMomProfile();
-    }
+    if (profile?.id) fetchMomProfile();
   }, [profile]);
 
   useEffect(() => {
-    if (momProfile) {
-      fetchItems();
-    }
+    if (momProfile) fetchItems();
   }, [momProfile]);
 
   const fetchMomProfile = async () => {
@@ -105,6 +100,13 @@ export default function Dashboard() {
       .update({ bio, location_name: locationName })
       .eq('id', momProfile.id);
 
+    if (phone && profile) {
+      await supabase
+        .from('profiles')
+        .update({ phone })
+        .eq('id', profile.id);
+    }
+
     fetchMomProfile();
     setShowEditProfile(false);
   };
@@ -125,8 +127,8 @@ export default function Dashboard() {
       <div className="dashboard-page">
         <div className="empty-state">
           <ShoppingBag size={48} />
-          <h3>Not a Mom yet?</h3>
-          <p>Your profile role needs to be set to "Mom" to access the dashboard.</p>
+          <h3>Not a MOM yet?</h3>
+          <p>Your profile role needs to be set to "MOM" to access the dashboard.</p>
         </div>
       </div>
     );
@@ -147,13 +149,27 @@ export default function Dashboard() {
 
       <div className="dashboard-profile-card">
         <div className="profile-card-info">
-          <h3>{profile?.display_name}</h3>
+          <div className="profile-name-row">
+            <h3>{profile?.display_name}</h3>
+            {momProfile.verified && <Shield size={16} className="verified-badge-lg" />}
+          </div>
+          <div className="profile-stats">
+            {momProfile.avg_rating && (
+              <span className="profile-stat">
+                <Star size={14} className="star-icon" /> {Number(momProfile.avg_rating).toFixed(1)}
+              </span>
+            )}
+            <span className="profile-stat">{momProfile.exchange_count} exchanges</span>
+          </div>
           {momProfile.location_name && (
             <p><MapPin size={14} /> {momProfile.location_name}</p>
           )}
+          {profile?.phone && (
+            <p><Phone size={14} /> {profile.phone}</p>
+          )}
           {momProfile.bio && <p className="profile-bio">{momProfile.bio}</p>}
         </div>
-        <button className="btn-outline btn-sm" onClick={() => setShowEditProfile(true)}>
+        <button className="btn-outline btn-sm" onClick={() => { setPhone(profile?.phone || ''); setShowEditProfile(true); }}>
           <Edit3 size={14} /> Edit Profile
         </button>
       </div>
@@ -205,7 +221,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Add Item Modal */}
       {showAddItem && (
         <div className="modal-overlay" onClick={() => setShowAddItem(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -222,7 +237,7 @@ export default function Dashboard() {
                   value={itemName}
                   onChange={(e) => setItemName(e.target.value)}
                   required
-                  placeholder="e.g. Extra gum, Sunscreen SPF 50"
+                  placeholder="e.g. Sunscreen SPF 50, Band-aids"
                 />
               </div>
 
@@ -232,7 +247,7 @@ export default function Dashboard() {
                   id="itemDesc"
                   value={itemDesc}
                   onChange={(e) => setItemDesc(e.target.value)}
-                  placeholder="e.g. Mint flavor, travel size"
+                  placeholder="e.g. Travel size, mint flavor"
                   rows={2}
                 />
               </div>
@@ -259,10 +274,10 @@ export default function Dashboard() {
                   id="itemTip"
                   type="number"
                   min="0"
-                  step="0.5"
+                  step="0.25"
                   value={itemTip}
                   onChange={(e) => setItemTip(e.target.value)}
-                  placeholder="e.g. 2.00"
+                  placeholder="e.g. 1.00"
                 />
               </div>
 
@@ -274,14 +289,13 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Edit Profile Modal */}
       {showEditProfile && (
         <div className="modal-overlay" onClick={() => setShowEditProfile(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setShowEditProfile(false)}>
               <X size={20} />
             </button>
-            <h2>Edit Mom Profile</h2>
+            <h2>Edit MOM Profile</h2>
             <form onSubmit={handleUpdateProfile}>
               <div className="form-group">
                 <label htmlFor="bio">Bio</label>
@@ -302,6 +316,17 @@ export default function Dashboard() {
                   value={locationName}
                   onChange={(e) => setLocationName(e.target.value)}
                   placeholder="e.g. Santa Monica Beach, Central Park"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="phone">Phone Number</label>
+                <input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
                 />
               </div>
 

@@ -4,6 +4,7 @@ export interface Profile {
   display_name: string;
   avatar_url: string | null;
   role: 'mom' | 'seeker';
+  phone: string;
   created_at: string;
 }
 
@@ -15,6 +16,9 @@ export interface MomProfile {
   location_lng: number | null;
   location_name: string;
   is_active: boolean;
+  verified: boolean;
+  exchange_count: number;
+  avg_rating: number | null;
   created_at: string;
   profiles?: Profile;
 }
@@ -31,7 +35,54 @@ export interface Item {
   mom_profiles?: MomProfile;
 }
 
-export type ItemCategory = 'snacks' | 'health' | 'beach' | 'baby' | 'beauty' | 'general';
+export type ItemCategory =
+  | 'sunscreen'
+  | 'firstaid'
+  | 'hair'
+  | 'beauty'
+  | 'laundry'
+  | 'snacks'
+  | 'tech'
+  | 'general';
+
+export const CATEGORY_LABELS: Record<ItemCategory, string> = {
+  sunscreen: 'Sunscreen & Sun Care',
+  firstaid: 'First Aid & Bandages',
+  hair: 'Hair Ties & Accessories',
+  beauty: 'Chapstick & Beauty',
+  laundry: 'Tide Pen & Laundry',
+  snacks: 'Gum & Mints',
+  tech: 'Phone Chargers & Tech',
+  general: 'Safety Pins & General',
+};
+
+export const CATEGORY_ICONS: Record<ItemCategory, string> = {
+  sunscreen: '☀️',
+  firstaid: '🩹',
+  hair: '🎀',
+  beauty: '💄',
+  laundry: '🧴',
+  snacks: '🍬',
+  tech: '🔌',
+  general: '📌',
+};
+
+export const ALLOWED_ITEMS = [
+  'Sunscreen', 'Bandaids', 'Hair ties', 'Safety pins', 'Chapstick',
+  'Tide pen', 'Moleskin', 'Gum', 'Mints', 'Phone charger',
+  'Aloe vera', 'Bug spray', 'Wipes', 'Lotion', 'Lip balm',
+  'Floss picks', 'Tissues', 'Hand sanitizer',
+];
+
+export interface Broadcast {
+  id: string;
+  seeker_id: string;
+  item_name: string;
+  message: string;
+  is_active: boolean;
+  created_at: string;
+  profiles?: Profile;
+}
 
 export interface Request {
   id: string;
@@ -47,20 +98,12 @@ export interface Request {
   profiles?: Profile;
 }
 
-export const CATEGORY_LABELS: Record<ItemCategory, string> = {
-  snacks: 'Snacks & Gum',
-  health: 'Health & Medicine',
-  beach: 'Beach Essentials',
-  baby: 'Baby Supplies',
-  beauty: 'Beauty & Care',
-  general: 'General',
-};
-
-export const CATEGORY_ICONS: Record<ItemCategory, string> = {
-  snacks: '🍬',
-  health: '💊',
-  beach: '🏖️',
-  baby: '🍼',
-  beauty: '💄',
-  general: '👜',
-};
+export interface Rating {
+  id: string;
+  request_id: string;
+  rater_id: string;
+  ratee_id: string;
+  score: number;
+  comment: string;
+  created_at: string;
+}

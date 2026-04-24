@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import type { Request } from '../lib/types';
-import { Clock, CircleCheck as CheckCircle, Circle as XCircle, Inbox } from 'lucide-react';
+import type { Request as Req, Rating } from '../lib/types';
+import { Clock, CircleCheck as CheckCircle, Circle as XCircle, Inbox, Star, X } from 'lucide-react';
 
 export default function Requests() {
   const { profile } = useAuth();
-  const [requests, setRequests] = useState<(Request & { items?: any; profiles?: any })[]>([]);
+  const [requests, setRequests] = useState<(Req & { items?: any; profiles?: any })[]>([]);
+  const [ratings, setRatings] = useState<Rating[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'received' | 'sent'>('sent');
+  const [showRating, setShowRating] = useState<string | null>(null);
+  const [ratingScore, setRatingScore] = useState(5);
+  const [ratingComment, setRatingComment] = useState('');
+  const [ratingLoading, setRatingLoading] = useState(false);
 
   useEffect(() => {
-    if (profile?.id) fetchRequests();
+    if (profile?.id) {
+      fetchRequests();
+      fetchRatings();
+    }
   }, [profile, tab]);
 
   const fetchRequests = async () => {
@@ -30,15 +38,51 @@ export default function Requests() {
     }
 
     const { data, error } = await query;
-    if (!error && data) {
-      setRequests(data as any);
-    }
+    if (!error && data) setRequests(data as any);
     setLoading(false);
   };
 
-  const updateStatus = async (id: string, status: Request['status']) => {
+  const fetchRatings = async () => {
+    if (!profile) return;
+    const { data } = await supabase
+      .from('ratings')
+      .select('*')
+      .or(`rater_id.eq.${profile.id},ratee_id.eq.${profile.id}`);
+    if (data) setRatings(data);
+  };
+
+  const updateStatus = async (id: string, status: Req['status']) => {
     await supabase.from('requests').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
     fetchRequests();
+  };
+
+  const hasRated = (requestId: string) => {
+    return ratings.some((r) => r.request_id === requestId && r.rater_id === profile?.id);
+  };
+
+  const getOtherUserId = (req: Req & { items?: any; profiles?: any }) => {
+    return tab === 'sent' ? req.mom_user_id : req.seeker_id;
+  };
+
+  const submitRating = async (req: Req & { items?: any; profiles?: any }) => {
+    if (!profile) return;
+    setRatingLoading(true);
+
+    const { error } = await supabase.from('ratings').insert({
+      request_id: req.id,
+      rater_id: profile.id,
+      ratee_id: getOtherUserId(req),
+      score: ratingScore,
+      comment: ratingComment,
+    });
+
+    if (!error) {
+      setShowRating(null);
+      setRatingScore(5);
+      setRatingComment('');
+      fetchRatings();
+    }
+    setRatingLoading(false);
   };
 
   const statusIcon = (status: string) => {
@@ -83,7 +127,7 @@ export default function Requests() {
         <div className="empty-state">
           <Inbox size={48} />
           <h3>No requests yet</h3>
-          <p>{tab === 'sent' ? 'Browse items and send your first request' : 'When seekers request your items, they\'ll appear here'}</p>
+          <p>{tab === 'sent' ? 'Browse items and send your first request' : "When seekers request your items, they'll appear here"}</p>
         </div>
       ) : (
         <div className="requests-list">
@@ -104,26 +148,18 @@ export default function Requests() {
                 {req.message && <p className="request-message">"{req.message}"</p>}
                 <div className="request-meta">
                   <span className="request-tip">Tip: ${Number(req.tip_amount).toFixed(2)}</span>
-                  {tab === 'sent' ? (
-                    <span className="request-user">From: {req.profiles?.display_name || 'A Mom'}</span>
-                  ) : (
-                    <span className="request-user">From: {req.profiles?.display_name || 'A Seeker'}</span>
-                  )}
+                  <span className="request-user">
+                    {tab === 'sent' ? 'MOM' : 'Seeker'}: {req.profiles?.display_name || 'Unknown'}
+                  </span>
                 </div>
               </div>
 
               {tab === 'received' && req.status === 'pending' && (
                 <div className="request-actions">
-                  <button
-                    className="btn-primary btn-sm"
-                    onClick={() => updateStatus(req.id, 'accepted')}
-                  >
+                  <button className="btn-primary btn-sm" onClick={() => updateStatus(req.id, 'accepted')}>
                     Accept
                   </button>
-                  <button
-                    className="btn-outline btn-sm"
-                    onClick={() => updateStatus(req.id, 'cancelled')}
-                  >
+                  <button className="btn-outline btn-sm" onClick={() => updateStatus(req.id, 'cancelled')}>
                     Decline
                   </button>
                 </div>
@@ -131,11 +167,58 @@ export default function Requests() {
 
               {tab === 'received' && req.status === 'accepted' && (
                 <div className="request-actions">
-                  <button
-                    className="btn-primary btn-sm"
-                    onClick={() => updateStatus(req.id, 'completed')}
-                  >
+                  <button className="btn-primary btn-sm" onClick={() => updateStatus(req.id, 'completed')}>
                     Mark Completed
+                  </button>
+                </div>
+              )}
+
+              {req.status === 'completed' && !hasRated(req.id) && (
+                <div className="request-actions">
+                  <button className="btn-outline btn-sm" onClick={() => setShowRating(req.id)}>
+                    <Star size={14} /> Rate this exchange
+                  </button>
+                </div>
+              )}
+
+              {req.status === 'completed' && hasRated(req.id) && (
+                <div className="request-actions rated">
+                  <Star size={14} className="star-icon" /> Rated
+                </div>
+              )}
+
+              {showRating === req.id && (
+                <div className="rating-form">
+                  <div className="rating-form-header">
+                    <strong>Rate this exchange</strong>
+                    <button className="btn-icon" onClick={() => setShowRating(null)}>
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="star-selector">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className={`star-btn ${ratingScore >= s ? 'active' : ''}`}
+                        onClick={() => setRatingScore(s)}
+                      >
+                        <Star size={24} fill={ratingScore >= s ? 'currentColor' : 'none'} />
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={ratingComment}
+                    onChange={(e) => setRatingComment(e.target.value)}
+                    placeholder="Optional comment about the exchange"
+                    rows={2}
+                  />
+                  <button
+                    className="btn-primary btn-sm btn-full"
+                    onClick={() => submitRating(req)}
+                    disabled={ratingLoading}
+                  >
+                    {ratingLoading ? 'Submitting...' : 'Submit Rating'}
                   </button>
                 </div>
               )}

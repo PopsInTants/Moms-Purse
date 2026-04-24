@@ -1,11 +1,13 @@
 import { supabase } from './supabase';
 
-export async function signUp(email: string, password: string, displayName: string, role: 'mom' | 'seeker') {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
-
+export async function signUp(
+  email: string,
+  password: string,
+  displayName: string,
+  role: 'mom' | 'seeker',
+  phone: string = ''
+) {
+  const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
   if (!data.user) throw new Error('No user returned');
 
@@ -14,8 +16,8 @@ export async function signUp(email: string, password: string, displayName: strin
     email,
     display_name: displayName,
     role,
+    phone,
   });
-
   if (profileError) throw profileError;
 
   if (role === 'mom') {
@@ -24,6 +26,7 @@ export async function signUp(email: string, password: string, displayName: strin
       bio: '',
       location_name: '',
       is_active: true,
+      verified: false,
     });
     if (momError) throw momError;
   }

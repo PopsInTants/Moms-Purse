@@ -11,7 +11,7 @@ interface Props {
 
 export default function ItemRequestModal({ item, onClose }: Props) {
   const { profile } = useAuth();
-  const [tipAmount, setTipAmount] = useState(item.suggested_tip ? Number(item.suggested_tip) : 2);
+  const [tipAmount, setTipAmount] = useState(item.suggested_tip ? Number(item.suggested_tip) : 1);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -55,7 +55,7 @@ export default function ItemRequestModal({ item, onClose }: Props) {
           <div className="modal-success">
             <span className="success-emoji">🎉</span>
             <h2>Request Sent!</h2>
-            <p>Your request has been sent to the Mom. You'll be notified when they respond.</p>
+            <p>Your request has been sent to the MOM. You'll be notified when they respond.</p>
             <button className="btn-primary" onClick={onClose}>Done</button>
           </div>
         ) : (
@@ -74,24 +74,23 @@ export default function ItemRequestModal({ item, onClose }: Props) {
 
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label htmlFor="tip">Tip Amount ($)</label>
+                <label>Tip Amount ($)</label>
                 <div className="tip-presets">
-                  {[1, 2, 3, 5].map((amount) => (
+                  {[0.5, 1, 2].map((amount) => (
                     <button
                       key={amount}
                       type="button"
                       className={`tip-preset ${tipAmount === amount ? 'active' : ''}`}
                       onClick={() => setTipAmount(amount)}
                     >
-                      ${amount}
+                      ${amount.toFixed(2)}
                     </button>
                   ))}
                 </div>
                 <input
-                  id="tip"
                   type="number"
                   min="0"
-                  step="0.5"
+                  step="0.25"
                   value={tipAmount}
                   onChange={(e) => setTipAmount(parseFloat(e.target.value) || 0)}
                 />

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { signUp } from '../lib/auth';
 import { useAuth } from '../context/AuthContext';
-import { Handbag, Eye, EyeOff } from 'lucide-react';
+import { Handbag, Eye, EyeOff, Shield } from 'lucide-react';
 
 export default function Signup() {
   const [searchParams] = useSearchParams();
@@ -11,6 +11,7 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'mom' | 'seeker'>(preselectedRole);
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
@@ -23,7 +24,7 @@ export default function Signup() {
     setError('');
     setLoading(true);
     try {
-      await signUp(email, password, displayName, role);
+      await signUp(email, password, displayName, role, role === 'mom' ? phone : '');
       await refreshProfile();
       navigate(role === 'mom' ? '/dashboard' : '/browse');
     } catch (err: any) {
@@ -58,10 +59,17 @@ export default function Signup() {
             onClick={() => setRole('mom')}
           >
             <span className="role-emoji">👜</span>
-            <strong>Mom</strong>
+            <strong>MOM</strong>
             <span>Share what you carry</span>
           </button>
         </div>
+
+        {role === 'mom' && (
+          <div className="verification-notice">
+            <Shield size={16} />
+            <span>MOMs require phone verification to build community trust</span>
+          </div>
+        )}
 
         {error && <div className="form-error">{error}</div>}
 
@@ -90,6 +98,20 @@ export default function Signup() {
             />
           </div>
 
+          {role === 'mom' && (
+            <div className="form-group">
+              <label htmlFor="phone">Phone Number</label>
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                placeholder="(555) 123-4567"
+              />
+            </div>
+          )}
+
           <div className="form-group">
             <label htmlFor="password">Password</label>
             <div className="input-with-icon">
@@ -109,7 +131,7 @@ export default function Signup() {
           </div>
 
           <button type="submit" className="btn-primary btn-full" disabled={loading}>
-            {loading ? 'Creating account...' : `Sign up as ${role === 'mom' ? 'a Mom' : 'a Seeker'}`}
+            {loading ? 'Creating account...' : `Sign up as ${role === 'mom' ? 'a MOM' : 'a Seeker'}`}
           </button>
         </form>
 

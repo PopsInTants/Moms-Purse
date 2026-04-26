@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Item, MomProfile, ItemCategory, ApprovedItem } from '../lib/types';
 import { CATEGORY_LABELS, CATEGORY_ICONS } from '../lib/types';
-import { Plus, X, MapPin, CreditCard as Edit3, ShoppingBag, ToggleLeft, ToggleRight, Star, Shield, Phone, DollarSign, Clock } from 'lucide-react';
+import { Plus, X, MapPin, CreditCard as Edit3, ShoppingBag, ToggleLeft, ToggleRight, Star, Shield, Phone, DollarSign, Clock, Camera } from 'lucide-react';
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -23,6 +23,9 @@ export default function Dashboard() {
   const [bio, setBio] = useState('');
   const [locationName, setLocationName] = useState('');
   const [phone, setPhone] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (profile?.id) fetchMomProfile();
@@ -123,17 +126,37 @@ export default function Dashboard() {
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!momProfile) return;
+    if (!momProfile || !profile) return;
+    setUploading(true);
+
+    let photoUrl = profile.photo_url || null;
+
+    if (photoFile) {
+      const ext = photoFile.name.split('.').pop();
+      const path = `${profile.id}/avatar.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, photoFile, { upsert: true });
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+        photoUrl = urlData.publicUrl;
+      }
+    }
 
     await supabase
       .from('mom_profiles')
       .update({ bio, location_name: locationName })
       .eq('id', momProfile.id);
 
-    if (phone && profile) {
-      await supabase.from('profiles').update({ phone }).eq('id', profile.id);
-    }
+    await supabase
+      .from('profiles')
+      .update({ phone, photo_url: photoUrl })
+      .eq('id', profile.id);
 
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setUploading(false);
     fetchMomProfile();
     setShowEditProfile(false);
   };
@@ -181,6 +204,15 @@ export default function Dashboard() {
       </div>
 
       <div className="dashboard-profile-card">
+        <div className="profile-card-photo">
+          {profile?.photo_url ? (
+            <img src={profile.photo_url} alt={profile.display_name} className="profile-photo-img" />
+          ) : (
+            <div className="profile-photo-placeholder">
+              {profile?.display_name?.[0]?.toUpperCase() || 'M'}
+            </div>
+          )}
+        </div>
         <div className="profile-card-info">
           <div className="profile-name-row">
             <h3>{profile?.display_name}</h3>
@@ -206,7 +238,7 @@ export default function Dashboard() {
           {momProfile.bio && <p className="profile-bio">{momProfile.bio}</p>}
         </div>
         <div className="profile-card-actions">
-          <button className="btn-outline btn-sm" onClick={() => { setPhone(profile?.phone || ''); setShowEditProfile(true); }}>
+          <button className="btn-outline btn-sm" onClick={() => { setPhone(profile?.phone || ''); setPhotoPreview(null); setPhotoFile(null); setShowEditProfile(true); }}>
             <Edit3 size={14} /> Edit Profile
           </button>
           {exchanges.length > 0 && (
@@ -356,6 +388,37 @@ export default function Dashboard() {
             <h2>Edit MOM Profile</h2>
             <form onSubmit={handleUpdateProfile}>
               <div className="form-group">
+                <label>Photo</label>
+                <div className="photo-upload-area">
+                  <div className="photo-preview-circle">
+                    {photoPreview || profile?.photo_url ? (
+                      <img src={photoPreview || profile?.photo_url || ''} alt="Avatar" className="photo-preview-img" />
+                    ) : (
+                      <span className="photo-preview-initial">
+                        {profile?.display_name?.[0]?.toUpperCase() || 'M'}
+                      </span>
+                    )}
+                    <label className="photo-upload-overlay" htmlFor="photoInput">
+                      <Camera size={18} />
+                    </label>
+                  </div>
+                  <input
+                    id="photoInput"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setPhotoFile(file);
+                        setPhotoPreview(URL.createObjectURL(file));
+                      }
+                    }}
+                    className="photo-input-hidden"
+                  />
+                  <span className="photo-upload-hint">Click to upload a new photo</span>
+                </div>
+              </div>
+              <div className="form-group">
                 <label htmlFor="bio">Bio</label>
                 <textarea
                   id="bio"
@@ -385,7 +448,9 @@ export default function Dashboard() {
                   placeholder="(555) 123-4567"
                 />
               </div>
-              <button type="submit" className="btn-primary btn-full">Save Changes</button>
+              <button type="submit" className="btn-primary btn-full" disabled={uploading}>
+                {uploading ? 'Saving...' : 'Save Changes'}
+              </button>
             </form>
           </div>
         </div>

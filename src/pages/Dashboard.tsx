@@ -129,37 +129,58 @@ export default function Dashboard() {
     if (!momProfile || !profile) return;
     setUploading(true);
 
-    let photoUrl = profile.photo_url || null;
+    try {
+      let photoUrl = profile.photo_url || null;
 
-    if (photoFile) {
-      const ext = photoFile.name.split('.').pop();
-      const path = `${profile.id}/avatar.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, photoFile, { upsert: true });
+      // Upload photo if provided
+      if (photoFile) {
+        const ext = photoFile.name.split('.').pop();
+        const path = `${profile.id}/avatar.${ext}`;
 
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-        photoUrl = urlData.publicUrl;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(path, photoFile, { upsert: true });
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+        } else {
+          const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+          photoUrl = urlData.publicUrl;
+          console.log('Photo uploaded, URL:', photoUrl);
+        }
       }
+
+      // Update mom profile
+      const { error: momError } = await supabase
+        .from('mom_profiles')
+        .update({ bio, location_name: locationName })
+        .eq('id', momProfile.id);
+      if (momError) console.error('Mom profile error:', momError);
+
+      // Update user profile with phone and photo
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ phone, photo_url: photoUrl })
+        .eq('id', profile.id);
+      if (profileError) console.error('Profile error:', profileError);
+      else console.log('Profile updated successfully');
+
+      setPhotoFile(null);
+      setPhotoPreview(null);
+
+      // Force refresh the auth context so the profile card updates
+      await refreshProfile();
+      console.log('Refreshed auth context');
+
+      // Re-fetch mom profile
+      await fetchMomProfile();
+      console.log('Fetched mom profile');
+    } catch (err) {
+      console.error('Profile update error:', err);
+    } finally {
+      setUploading(false);
+      setShowEditProfile(false);
     }
-
-    await supabase
-      .from('mom_profiles')
-      .update({ bio, location_name: locationName })
-      .eq('id', momProfile.id);
-
-    await supabase
-      .from('profiles')
-      .update({ phone, photo_url: photoUrl })
-      .eq('id', profile.id);
-
-    setPhotoFile(null);
-    setPhotoPreview(null);
-    setUploading(false);
-    await refreshProfile();
-    fetchMomProfile();
-    setShowEditProfile(false);
   };
 
   const toggleActive = async () => {

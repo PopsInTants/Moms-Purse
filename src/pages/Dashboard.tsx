@@ -6,7 +6,7 @@ import { CATEGORY_LABELS, CATEGORY_ICONS } from '../lib/types';
 import { Plus, X, MapPin, CreditCard as Edit3, ShoppingBag, ToggleLeft, ToggleRight, Star, Shield, Phone, DollarSign, Clock, Camera } from 'lucide-react';
 
 export default function Dashboard() {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const [momProfile, setMomProfile] = useState<MomProfile | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [approvedItems, setApprovedItems] = useState<ApprovedItem[]>([]);
@@ -157,6 +157,7 @@ export default function Dashboard() {
     setPhotoFile(null);
     setPhotoPreview(null);
     setUploading(false);
+    await refreshProfile();
     fetchMomProfile();
     setShowEditProfile(false);
   };

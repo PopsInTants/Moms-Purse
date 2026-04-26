@@ -12,21 +12,24 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<'mom' | 'seeker'>(preselectedRole);
+  const [zipCode, setZipCode] = useState('');
+  const [role, setRole] = useState<'mom' | 'seeker' | 'both'>(preselectedRole);
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { refreshProfile } = useAuth();
 
+  const needsMom = role === 'mom' || role === 'both';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await signUp(email, password, displayName, role, role === 'mom' ? phone : '');
+      await signUp(email, password, displayName, role, needsMom ? phone : '', zipCode);
       await refreshProfile();
-      navigate(role === 'mom' ? '/dashboard' : '/browse');
+      navigate(needsMom ? '/dashboard' : '/map');
     } catch (err: any) {
       setError(err.message || 'Failed to sign up');
     } finally {
@@ -62,9 +65,18 @@ export default function Signup() {
             <strong>MOM</strong>
             <span>Share what you carry</span>
           </button>
+          <button
+            type="button"
+            className={`role-option ${role === 'both' ? 'active' : ''}`}
+            onClick={() => setRole('both')}
+          >
+            <span className="role-emoji">🔄</span>
+            <strong>Both</strong>
+            <span>Carry and seek</span>
+          </button>
         </div>
 
-        {role === 'mom' && (
+        {needsMom && (
           <div className="verification-notice">
             <Shield size={16} />
             <span>MOMs require phone verification to build community trust</span>
@@ -98,7 +110,7 @@ export default function Signup() {
             />
           </div>
 
-          {role === 'mom' && (
+          {needsMom && (
             <div className="form-group">
               <label htmlFor="phone">Phone Number</label>
               <input
@@ -111,6 +123,19 @@ export default function Signup() {
               />
             </div>
           )}
+
+          <div className="form-group">
+            <label htmlFor="zipCode">Zip Code</label>
+            <input
+              id="zipCode"
+              type="text"
+              value={zipCode}
+              onChange={(e) => setZipCode(e.target.value)}
+              required
+              placeholder="90210"
+              maxLength={10}
+            />
+          </div>
 
           <div className="form-group">
             <label htmlFor="password">Password</label>
@@ -131,7 +156,7 @@ export default function Signup() {
           </div>
 
           <button type="submit" className="btn-primary btn-full" disabled={loading}>
-            {loading ? 'Creating account...' : `Sign up as ${role === 'mom' ? 'a MOM' : 'a Seeker'}`}
+            {loading ? 'Creating account...' : `Sign up as ${role === 'mom' ? 'a MOM' : role === 'both' ? 'both' : 'a Seeker'}`}
           </button>
         </form>
 

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Handbag, MapPin, Heart, Search, Sparkles, ArrowRight, Star, Shield } from 'lucide-react';
+import { Handbag, MapPin, Search, Sparkles, ArrowRight, Star, Shield, DollarSign } from 'lucide-react';
 
 export default function Landing() {
   return (
@@ -31,7 +31,7 @@ export default function Landing() {
           <div className="step">
             <div className="step-icon"><Search size={28} /></div>
             <h3>Search or Broadcast</h3>
-            <p>Browse items from nearby MOMs, or post an "In Need Of" broadcast and let them come to you.</p>
+            <p>Browse items from nearby MOMs on the map, or post an "In Need Of" broadcast and let them come to you.</p>
           </div>
           <div className="step">
             <div className="step-icon"><MapPin size={28} /></div>
@@ -39,7 +39,7 @@ export default function Landing() {
             <p>Request what you need and meet up with a verified MOM nearby who has it.</p>
           </div>
           <div className="step">
-            <div className="step-icon"><Heart size={28} /></div>
+            <div className="step-icon"><DollarSign size={28} /></div>
             <h3>Tip & Rate</h3>
             <p>Show your appreciation with a tip. Both sides rate the exchange to build community trust.</p>
           </div>
@@ -55,7 +55,7 @@ export default function Landing() {
             { icon: '🩹', label: 'First Aid', desc: 'Band-aids, moleskin, antiseptic' },
             { icon: '🎀', label: 'Hair & Accessories', desc: 'Hair ties, safety pins, clips' },
             { icon: '💄', label: 'Chapstick & Beauty', desc: 'Lip balm, lotion, hand sanitizer' },
-            { icon: '🧴', label: 'Tide Pen & Laundry', desc: 'Stain removers, wipes' },
+            { icon: '🧴', label: 'Tide Pen & Laundry', desc: 'Stain removers, wet wipes' },
             { icon: '🍬', label: 'Gum & Mints', desc: 'Gum, mints, breath strips' },
             { icon: '🔌', label: 'Phone Chargers', desc: 'Lightning, USB-C, micro-USB' },
             { icon: '📌', label: 'General', desc: 'Tissues, floss picks, bug spray' },
@@ -75,7 +75,7 @@ export default function Landing() {
           <div className="trust-feature">
             <Shield size={28} />
             <h3>Verified MOMs</h3>
-            <p>Photo, name, and phone verification required for every MOM on the platform.</p>
+            <p>Phone verification required for every MOM on the platform. Know who you're meeting.</p>
           </div>
           <div className="trust-feature">
             <Star size={28} />

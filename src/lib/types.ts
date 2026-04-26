@@ -3,8 +3,11 @@ export interface Profile {
   email: string;
   display_name: string;
   avatar_url: string | null;
-  role: 'mom' | 'seeker';
+  photo_url: string | null;
+  role: 'mom' | 'seeker' | 'both';
   phone: string;
+  zip_code: string;
+  suspended: boolean;
   created_at: string;
 }
 
@@ -19,6 +22,8 @@ export interface MomProfile {
   verified: boolean;
   exchange_count: number;
   avg_rating: number | null;
+  total_earnings: number;
+  zip_code: string;
   created_at: string;
   profiles?: Profile;
 }
@@ -67,12 +72,13 @@ export const CATEGORY_ICONS: Record<ItemCategory, string> = {
   general: '📌',
 };
 
-export const ALLOWED_ITEMS = [
-  'Sunscreen', 'Bandaids', 'Hair ties', 'Safety pins', 'Chapstick',
-  'Tide pen', 'Moleskin', 'Gum', 'Mints', 'Phone charger',
-  'Aloe vera', 'Bug spray', 'Wipes', 'Lotion', 'Lip balm',
-  'Floss picks', 'Tissues', 'Hand sanitizer',
-];
+export interface ApprovedItem {
+  id: string;
+  name: string;
+  category: ItemCategory;
+  is_active: boolean;
+  created_at: string;
+}
 
 export interface Broadcast {
   id: string;
@@ -91,6 +97,8 @@ export interface Request {
   mom_user_id: string;
   status: 'pending' | 'accepted' | 'completed' | 'cancelled';
   tip_amount: number;
+  tip_paid: boolean;
+  platform_fee: number | null;
   message: string;
   created_at: string;
   updated_at: string;
@@ -105,5 +113,25 @@ export interface Rating {
   ratee_id: string;
   score: number;
   comment: string;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'request_received' | 'request_accepted' | 'broadcast_match' | 'tip_received' | 'rating_received';
+  title: string;
+  body: string;
+  reference_id: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface Report {
+  id: string;
+  reporter_id: string;
+  reported_id: string;
+  request_id: string | null;
+  reason: string;
   created_at: string;
 }

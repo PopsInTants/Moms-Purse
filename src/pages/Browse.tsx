@@ -18,6 +18,15 @@ export default function Browse() {
   const [broadcastItem, setBroadcastItem] = useState('');
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [view, setView] = useState<'items' | 'broadcasts'>('items');
+  const [userPos, setUserPos] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserPos([pos.coords.latitude, pos.coords.longitude])
+      );
+    }
+  }, []);
 
   useEffect(() => {
     fetchItems();
@@ -46,7 +55,6 @@ export default function Browse() {
       .select('*, profiles(*)')
       .eq('is_active', true)
       .order('created_at', { ascending: false });
-
     if (data) setBroadcasts(data as any);
   };
 
@@ -74,10 +82,30 @@ export default function Browse() {
     fetchBroadcasts();
   };
 
+  const getDistance = (lat: number, lng: number) => {
+    if (!userPos) return null;
+    const R = 3959;
+    const dLat = (lat - userPos[0]) * Math.PI / 180;
+    const dLng = (lng - userPos[1]) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(userPos[0] * Math.PI / 180) * Math.cos(lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
   const filtered = items.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase()) ||
     item.description.toLowerCase().includes(search.toLowerCase())
   );
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (!userPos) return 0;
+    const dA = a.mom_profiles?.location_lat && a.mom_profiles?.location_lng
+      ? getDistance(a.mom_profiles.location_lat, a.mom_profiles.location_lng) ?? Infinity
+      : Infinity;
+    const dB = b.mom_profiles?.location_lat && b.mom_profiles?.location_lng
+      ? getDistance(b.mom_profiles.location_lat, b.mom_profiles.location_lng) ?? Infinity
+      : Infinity;
+    return dA - dB;
+  });
 
   return (
     <div className="browse-page">
@@ -92,16 +120,8 @@ export default function Browse() {
       </div>
 
       <div className="browse-tabs">
-        <button
-          className={`tab ${view === 'items' ? 'active' : ''}`}
-          onClick={() => setView('items')}
-        >
-          Items
-        </button>
-        <button
-          className={`tab ${view === 'broadcasts' ? 'active' : ''}`}
-          onClick={() => setView('broadcasts')}
-        >
+        <button className={`tab ${view === 'items' ? 'active' : ''}`} onClick={() => setView('items')}>Items</button>
+        <button className={`tab ${view === 'broadcasts' ? 'active' : ''}`} onClick={() => setView('broadcasts')}>
           <Megaphone size={14} /> In Need Of
         </button>
       </div>
@@ -118,20 +138,10 @@ export default function Browse() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-
             <div className="category-filters">
-              <button
-                className={`filter-chip ${category === 'all' ? 'active' : ''}`}
-                onClick={() => setCategory('all')}
-              >
-                All
-              </button>
+              <button className={`filter-chip ${category === 'all' ? 'active' : ''}`} onClick={() => setCategory('all')}>All</button>
               {(Object.keys(CATEGORY_LABELS) as ItemCategory[]).map((cat) => (
-                <button
-                  key={cat}
-                  className={`filter-chip ${category === cat ? 'active' : ''}`}
-                  onClick={() => setCategory(cat)}
-                >
+                <button key={cat} className={`filter-chip ${category === cat ? 'active' : ''}`} onClick={() => setCategory(cat)}>
                   {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
                 </button>
               ))}
@@ -140,7 +150,7 @@ export default function Browse() {
 
           {loading ? (
             <div className="loading-state">Loading items...</div>
-          ) : filtered.length === 0 ? (
+          ) : sorted.length === 0 ? (
             <div className="empty-state">
               <ShoppingBag size={48} />
               <h3>No items found</h3>
@@ -148,48 +158,50 @@ export default function Browse() {
             </div>
           ) : (
             <div className="items-grid">
-              {filtered.map((item) => (
-                <div key={item.id} className="item-card">
-                  <div className="item-category-badge">
-                    {CATEGORY_ICONS[item.category]} {CATEGORY_LABELS[item.category]}
-                  </div>
-                  <h3>{item.name}</h3>
-                  {item.description && <p className="item-desc">{item.description}</p>}
-                  {item.mom_profiles && (
-                    <div className="item-mom-info">
-                      <div className="mom-avatar">
-                        {item.mom_profiles.profiles?.display_name?.[0]?.toUpperCase() || 'M'}
-                      </div>
-                      <div>
-                        <span className="mom-name">
-                          {item.mom_profiles.profiles?.display_name}
-                          {item.mom_profiles.verified && <Shield size={12} className="verified-badge" />}
-                        </span>
-                        <div className="mom-meta">
-                          {item.mom_profiles.avg_rating && (
-                            <span className="mom-rating">
-                              <Star size={12} /> {Number(item.mom_profiles.avg_rating).toFixed(1)}
-                            </span>
-                          )}
-                          {item.mom_profiles.location_name && (
-                            <span className="mom-location">
-                              <MapPin size={12} /> {item.mom_profiles.location_name}
-                            </span>
-                          )}
+              {sorted.map((item) => {
+                const dist = item.mom_profiles?.location_lat && item.mom_profiles?.location_lng && userPos
+                  ? getDistance(item.mom_profiles.location_lat, item.mom_profiles.location_lng)
+                  : null;
+                return (
+                  <div key={item.id} className="item-card">
+                    <div className="item-category-badge">
+                      {CATEGORY_ICONS[item.category]} {CATEGORY_LABELS[item.category]}
+                    </div>
+                    <h3>{item.name}</h3>
+                    {item.description && <p className="item-desc">{item.description}</p>}
+                    {item.mom_profiles && (
+                      <div className="item-mom-info">
+                        <div className="mom-avatar">
+                          {item.mom_profiles.profiles?.display_name?.[0]?.toUpperCase() || 'M'}
+                        </div>
+                        <div>
+                          <span className="mom-name">
+                            {item.mom_profiles.profiles?.display_name}
+                            {item.mom_profiles.verified && <Shield size={12} className="verified-badge" />}
+                          </span>
+                          <div className="mom-meta">
+                            {item.mom_profiles.avg_rating != null && (
+                              <span className="mom-rating"><Star size={12} /> {Number(item.mom_profiles.avg_rating).toFixed(1)}</span>
+                            )}
+                            {dist != null && (
+                              <span className="mom-distance"><MapPin size={12} /> {dist.toFixed(1)} mi</span>
+                            )}
+                            {item.mom_profiles.location_name && !dist && (
+                              <span className="mom-location"><MapPin size={12} /> {item.mom_profiles.location_name}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                  <div className="item-footer">
-                    {item.suggested_tip && (
-                      <span className="item-tip">Suggested tip: ${Number(item.suggested_tip).toFixed(2)}</span>
                     )}
-                    <button className="btn-primary btn-sm" onClick={() => setSelectedItem(item)}>
-                      Request
-                    </button>
+                    <div className="item-footer">
+                      {item.suggested_tip && (
+                        <span className="item-tip">Suggested tip: ${Number(item.suggested_tip).toFixed(2)}</span>
+                      )}
+                      <button className="btn-primary btn-sm" onClick={() => setSelectedItem(item)}>Request</button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -201,7 +213,7 @@ export default function Browse() {
             <div className="empty-state">
               <Megaphone size={48} />
               <h3>No active broadcasts</h3>
-              <p>Be the first to post what you need — nearby MOMs will see it</p>
+              <p>Be the first to post what you need -- nearby MOMs will see it</p>
               <button className="btn-primary" onClick={() => setShowBroadcast(true)}>
                 <Megaphone size={16} /> Post a Broadcast
               </button>
@@ -214,11 +226,7 @@ export default function Browse() {
                     <Megaphone size={16} className="broadcast-icon" />
                     <span className="broadcast-item-name">{b.item_name}</span>
                     {b.seeker_id === profile?.id && (
-                      <button
-                        className="btn-icon btn-icon-danger"
-                        onClick={() => deactivateBroadcast(b.id)}
-                        title="Cancel broadcast"
-                      >
+                      <button className="btn-icon btn-icon-danger" onClick={() => deactivateBroadcast(b.id)} title="Cancel broadcast">
                         <X size={14} />
                       </button>
                     )}
@@ -242,9 +250,7 @@ export default function Browse() {
       {showBroadcast && (
         <div className="modal-overlay" onClick={() => setShowBroadcast(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setShowBroadcast(false)}>
-              <X size={20} />
-            </button>
+            <button className="modal-close" onClick={() => setShowBroadcast(false)}><X size={20} /></button>
             <h2>In Need Of...</h2>
             <p className="modal-sub">Tell nearby MOMs what you need. They'll see your broadcast and can reach out if they have it.</p>
             <form onSubmit={handleBroadcast}>

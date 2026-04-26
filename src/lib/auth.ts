@@ -4,8 +4,9 @@ export async function signUp(
   email: string,
   password: string,
   displayName: string,
-  role: 'mom' | 'seeker',
-  phone: string = ''
+  role: 'mom' | 'seeker' | 'both',
+  phone: string = '',
+  zipCode: string = ''
 ) {
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
@@ -17,16 +18,18 @@ export async function signUp(
     display_name: displayName,
     role,
     phone,
+    zip_code: zipCode,
   });
   if (profileError) throw profileError;
 
-  if (role === 'mom') {
+  if (role === 'mom' || role === 'both') {
     const { error: momError } = await supabase.from('mom_profiles').insert({
       user_id: data.user.id,
       bio: '',
       location_name: '',
       is_active: true,
       verified: false,
+      zip_code: zipCode,
     });
     if (momError) throw momError;
   }

@@ -1,22 +1,24 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import type { Item, MomProfile, ItemCategory } from '../lib/types';
+import type { Item, MomProfile, ItemCategory, ApprovedItem } from '../lib/types';
 import { CATEGORY_LABELS, CATEGORY_ICONS } from '../lib/types';
-import { Plus, X, MapPin, CreditCard as Edit3, ShoppingBag, ToggleLeft, ToggleRight, Star, Shield, Phone } from 'lucide-react';
+import { Plus, X, MapPin, CreditCard as Edit3, ShoppingBag, ToggleLeft, ToggleRight, Star, Shield, Phone, DollarSign, Clock } from 'lucide-react';
 
 export default function Dashboard() {
   const { profile } = useAuth();
   const [momProfile, setMomProfile] = useState<MomProfile | null>(null);
   const [items, setItems] = useState<Item[]>([]);
+  const [approvedItems, setApprovedItems] = useState<ApprovedItem[]>([]);
+  const [exchanges, setExchanges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddItem, setShowAddItem] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showExchangeHistory, setShowExchangeHistory] = useState(false);
 
-  const [itemName, setItemName] = useState('');
+  const [selectedApproved, setSelectedApproved] = useState<string>('');
   const [itemDesc, setItemDesc] = useState('');
-  const [itemCategory, setItemCategory] = useState<ItemCategory>('general');
-  const [itemTip, setItemTip] = useState('');
+  const [itemTip, setItemTip] = useState('1');
 
   const [bio, setBio] = useState('');
   const [locationName, setLocationName] = useState('');
@@ -27,7 +29,11 @@ export default function Dashboard() {
   }, [profile]);
 
   useEffect(() => {
-    if (momProfile) fetchItems();
+    if (momProfile) {
+      fetchItems();
+      fetchApprovedItems();
+      fetchExchanges();
+    }
   }, [momProfile]);
 
   const fetchMomProfile = async () => {
@@ -51,28 +57,52 @@ export default function Dashboard() {
       .select('*')
       .eq('mom_id', momProfile!.id)
       .order('created_at', { ascending: false });
-
     if (data) setItems(data);
+  };
+
+  const fetchApprovedItems = async () => {
+    const { data } = await supabase
+      .from('approved_items')
+      .select('*')
+      .eq('is_active', true)
+      .order('category', { ascending: true })
+      .order('name', { ascending: true });
+    if (data) setApprovedItems(data);
+  };
+
+  const fetchExchanges = async () => {
+    const { data } = await supabase
+      .from('requests')
+      .select('*, items(name), profiles!requests_seeker_id_fkey(display_name)')
+      .eq('mom_user_id', profile!.id)
+      .in('status', ['completed'])
+      .order('updated_at', { ascending: false });
+    if (data) setExchanges(data);
   };
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!momProfile) return;
+    if (!momProfile || !selectedApproved) return;
+
+    const approved = approvedItems.find((a) => a.id === selectedApproved);
+    if (!approved) return;
+
+    const already = items.find((i) => i.name === approved.name);
+    if (already) return;
 
     const { error } = await supabase.from('items').insert({
       mom_id: momProfile.id,
-      name: itemName,
+      name: approved.name,
       description: itemDesc,
-      category: itemCategory,
+      category: approved.category,
       suggested_tip: itemTip ? parseFloat(itemTip) : null,
       is_available: true,
     });
 
     if (!error) {
-      setItemName('');
+      setSelectedApproved('');
       setItemDesc('');
-      setItemCategory('general');
-      setItemTip('');
+      setItemTip('1');
       setShowAddItem(false);
       fetchItems();
     }
@@ -101,10 +131,7 @@ export default function Dashboard() {
       .eq('id', momProfile.id);
 
     if (phone && profile) {
-      await supabase
-        .from('profiles')
-        .update({ phone })
-        .eq('id', profile.id);
+      await supabase.from('profiles').update({ phone }).eq('id', profile.id);
     }
 
     fetchMomProfile();
@@ -128,11 +155,17 @@ export default function Dashboard() {
         <div className="empty-state">
           <ShoppingBag size={48} />
           <h3>Not a MOM yet?</h3>
-          <p>Your profile role needs to be set to "MOM" to access the dashboard.</p>
+          <p>Your profile role needs to include "MOM" to access the dashboard.</p>
         </div>
       </div>
     );
   }
+
+  const groupedApproved = approvedItems.reduce((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category].push(item);
+    return acc;
+  }, {} as Record<string, ApprovedItem[]>);
 
   return (
     <div className="dashboard-page">
@@ -154,12 +187,15 @@ export default function Dashboard() {
             {momProfile.verified && <Shield size={16} className="verified-badge-lg" />}
           </div>
           <div className="profile-stats">
-            {momProfile.avg_rating && (
+            {momProfile.avg_rating != null && (
               <span className="profile-stat">
                 <Star size={14} className="star-icon" /> {Number(momProfile.avg_rating).toFixed(1)}
               </span>
             )}
             <span className="profile-stat">{momProfile.exchange_count} exchanges</span>
+            <span className="profile-stat earnings-stat">
+              <DollarSign size={14} /> {Number(momProfile.total_earnings).toFixed(2)} earned
+            </span>
           </div>
           {momProfile.location_name && (
             <p><MapPin size={14} /> {momProfile.location_name}</p>
@@ -169,9 +205,16 @@ export default function Dashboard() {
           )}
           {momProfile.bio && <p className="profile-bio">{momProfile.bio}</p>}
         </div>
-        <button className="btn-outline btn-sm" onClick={() => { setPhone(profile?.phone || ''); setShowEditProfile(true); }}>
-          <Edit3 size={14} /> Edit Profile
-        </button>
+        <div className="profile-card-actions">
+          <button className="btn-outline btn-sm" onClick={() => { setPhone(profile?.phone || ''); setShowEditProfile(true); }}>
+            <Edit3 size={14} /> Edit Profile
+          </button>
+          {exchanges.length > 0 && (
+            <button className="btn-outline btn-sm" onClick={() => setShowExchangeHistory(true)}>
+              <Clock size={14} /> History
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="dashboard-items-header">
@@ -223,53 +266,69 @@ export default function Dashboard() {
 
       {showAddItem && (
         <div className="modal-overlay" onClick={() => setShowAddItem(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setShowAddItem(false)}>
               <X size={20} />
             </button>
-            <h2>Add Item</h2>
+            <h2>Add Item from Catalog</h2>
+            <p className="modal-sub">Choose from the approved item list. Only community-approved items can be listed.</p>
             <form onSubmit={handleAddItem}>
               <div className="form-group">
-                <label htmlFor="itemName">Item Name</label>
-                <input
-                  id="itemName"
-                  type="text"
-                  value={itemName}
-                  onChange={(e) => setItemName(e.target.value)}
-                  required
-                  placeholder="e.g. Sunscreen SPF 50, Band-aids"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="itemDesc">Description (optional)</label>
-                <textarea
-                  id="itemDesc"
-                  value={itemDesc}
-                  onChange={(e) => setItemDesc(e.target.value)}
-                  placeholder="e.g. Travel size, mint flavor"
-                  rows={2}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Category</label>
-                <div className="category-select-grid">
-                  {(Object.keys(CATEGORY_LABELS) as ItemCategory[]).map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      className={`category-select-btn ${itemCategory === cat ? 'active' : ''}`}
-                      onClick={() => setItemCategory(cat)}
-                    >
-                      {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
-                    </button>
-                  ))}
+                <label>Select an item</label>
+                <div className="approved-items-catalog">
+                  {(Object.keys(CATEGORY_LABELS) as ItemCategory[]).map((cat) => {
+                    const catItems = groupedApproved[cat];
+                    if (!catItems || catItems.length === 0) return null;
+                    return (
+                      <div key={cat} className="catalog-category">
+                        <h4>{CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}</h4>
+                        <div className="catalog-items">
+                          {catItems.map((ai) => {
+                            const alreadyAdded = items.some((i) => i.name === ai.name);
+                            return (
+                              <button
+                                key={ai.id}
+                                type="button"
+                                className={`catalog-item-btn ${selectedApproved === ai.id ? 'active' : ''} ${alreadyAdded ? 'added' : ''}`}
+                                onClick={() => !alreadyAdded && setSelectedApproved(ai.id)}
+                                disabled={alreadyAdded}
+                              >
+                                {ai.name} {alreadyAdded && '✓'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="form-group">
-                <label htmlFor="itemTip">Suggested Tip ($) (optional)</label>
+                <label htmlFor="itemDesc">Description (optional)</label>
+                <input
+                  id="itemDesc"
+                  type="text"
+                  value={itemDesc}
+                  onChange={(e) => setItemDesc(e.target.value)}
+                  placeholder='e.g. "50 SPF", "Spearmint"'
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="itemTip">Suggested Tip ($)</label>
+                <div className="tip-presets">
+                  {[0.5, 1, 2].map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      className={`tip-preset ${itemTip === String(amount) ? 'active' : ''}`}
+                      onClick={() => setItemTip(String(amount))}
+                    >
+                      ${amount.toFixed(2)}
+                    </button>
+                  ))}
+                </div>
                 <input
                   id="itemTip"
                   type="number"
@@ -277,11 +336,10 @@ export default function Dashboard() {
                   step="0.25"
                   value={itemTip}
                   onChange={(e) => setItemTip(e.target.value)}
-                  placeholder="e.g. 1.00"
                 />
               </div>
 
-              <button type="submit" className="btn-primary btn-full">
+              <button type="submit" className="btn-primary btn-full" disabled={!selectedApproved}>
                 <Plus size={16} /> Add to Purse
               </button>
             </form>
@@ -307,7 +365,6 @@ export default function Dashboard() {
                   rows={3}
                 />
               </div>
-
               <div className="form-group">
                 <label htmlFor="locationName">Location Name</label>
                 <input
@@ -318,7 +375,6 @@ export default function Dashboard() {
                   placeholder="e.g. Santa Monica Beach, Central Park"
                 />
               </div>
-
               <div className="form-group">
                 <label htmlFor="phone">Phone Number</label>
                 <input
@@ -329,11 +385,47 @@ export default function Dashboard() {
                   placeholder="(555) 123-4567"
                 />
               </div>
-
-              <button type="submit" className="btn-primary btn-full">
-                Save Changes
-              </button>
+              <button type="submit" className="btn-primary btn-full">Save Changes</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showExchangeHistory && (
+        <div className="modal-overlay" onClick={() => setShowExchangeHistory(false)}>
+          <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowExchangeHistory(false)}>
+              <X size={20} />
+            </button>
+            <h2>Exchange History</h2>
+            <div className="earnings-summary">
+              <div className="earnings-card">
+                <span className="earnings-label">Total Earned</span>
+                <span className="earnings-value">${Number(momProfile.total_earnings).toFixed(2)}</span>
+              </div>
+              <div className="earnings-card">
+                <span className="earnings-label">Exchanges</span>
+                <span className="earnings-value">{momProfile.exchange_count}</span>
+              </div>
+            </div>
+            {exchanges.length === 0 ? (
+              <p className="empty-text">No completed exchanges yet.</p>
+            ) : (
+              <div className="exchange-list">
+                {exchanges.map((ex) => (
+                  <div key={ex.id} className="exchange-item">
+                    <div className="exchange-info">
+                      <strong>{ex.items?.name || 'Item'}</strong>
+                      <span className="exchange-seeker">from {ex.profiles?.display_name || 'Seeker'}</span>
+                    </div>
+                    <div className="exchange-meta">
+                      <span className="exchange-tip">+${Number(ex.tip_amount * 0.88).toFixed(2)}</span>
+                      <span className="exchange-date">{new Date(ex.updated_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

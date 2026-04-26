@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Request as Req, Rating } from '../lib/types';
-import { Clock, CircleCheck as CheckCircle, Circle as XCircle, Inbox, Star, X } from 'lucide-react';
+import { Clock, CircleCheck as CheckCircle, Circle as XCircle, Inbox, Star, X, Flag } from 'lucide-react';
 
 export default function Requests() {
   const { profile } = useAuth();
@@ -14,6 +14,9 @@ export default function Requests() {
   const [ratingScore, setRatingScore] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
   const [ratingLoading, setRatingLoading] = useState(false);
+  const [showReport, setShowReport] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
 
   useEffect(() => {
     if (profile?.id) {
@@ -25,7 +28,6 @@ export default function Requests() {
   const fetchRequests = async () => {
     if (!profile) return;
     setLoading(true);
-
     let query = supabase
       .from('requests')
       .select('*, items(*), profiles!requests_seeker_id_fkey(*)')
@@ -67,7 +69,6 @@ export default function Requests() {
   const submitRating = async (req: Req & { items?: any; profiles?: any }) => {
     if (!profile) return;
     setRatingLoading(true);
-
     const { error } = await supabase.from('ratings').insert({
       request_id: req.id,
       rater_id: profile.id,
@@ -75,7 +76,6 @@ export default function Requests() {
       score: ratingScore,
       comment: ratingComment,
     });
-
     if (!error) {
       setShowRating(null);
       setRatingScore(5);
@@ -83,6 +83,22 @@ export default function Requests() {
       fetchRatings();
     }
     setRatingLoading(false);
+  };
+
+  const submitReport = async (req: Req & { items?: any; profiles?: any }) => {
+    if (!profile) return;
+    setReportLoading(true);
+    const { error } = await supabase.from('reports').insert({
+      reporter_id: profile.id,
+      reported_id: getOtherUserId(req),
+      request_id: req.id,
+      reason: reportReason,
+    });
+    if (!error) {
+      setShowReport(null);
+      setReportReason('');
+    }
+    setReportLoading(false);
   };
 
   const statusIcon = (status: string) => {
@@ -107,18 +123,8 @@ export default function Requests() {
       <h1>Requests</h1>
 
       <div className="requests-tabs">
-        <button
-          className={`tab ${tab === 'sent' ? 'active' : ''}`}
-          onClick={() => setTab('sent')}
-        >
-          Sent
-        </button>
-        <button
-          className={`tab ${tab === 'received' ? 'active' : ''}`}
-          onClick={() => setTab('received')}
-        >
-          Received
-        </button>
+        <button className={`tab ${tab === 'sent' ? 'active' : ''}`} onClick={() => setTab('sent')}>Sent</button>
+        <button className={`tab ${tab === 'received' ? 'active' : ''}`} onClick={() => setTab('received')}>Received</button>
       </div>
 
       {loading ? (
@@ -138,9 +144,7 @@ export default function Requests() {
                   {statusIcon(req.status)}
                   <span className={`status-text status-${req.status}`}>{statusLabel[req.status]}</span>
                 </div>
-                <span className="request-time">
-                  {new Date(req.created_at).toLocaleDateString()}
-                </span>
+                <span className="request-time">{new Date(req.created_at).toLocaleDateString()}</span>
               </div>
 
               <div className="request-body">
@@ -156,20 +160,14 @@ export default function Requests() {
 
               {tab === 'received' && req.status === 'pending' && (
                 <div className="request-actions">
-                  <button className="btn-primary btn-sm" onClick={() => updateStatus(req.id, 'accepted')}>
-                    Accept
-                  </button>
-                  <button className="btn-outline btn-sm" onClick={() => updateStatus(req.id, 'cancelled')}>
-                    Decline
-                  </button>
+                  <button className="btn-primary btn-sm" onClick={() => updateStatus(req.id, 'accepted')}>Accept</button>
+                  <button className="btn-outline btn-sm" onClick={() => updateStatus(req.id, 'cancelled')}>Decline</button>
                 </div>
               )}
 
               {tab === 'received' && req.status === 'accepted' && (
                 <div className="request-actions">
-                  <button className="btn-primary btn-sm" onClick={() => updateStatus(req.id, 'completed')}>
-                    Mark Completed
-                  </button>
+                  <button className="btn-primary btn-sm" onClick={() => updateStatus(req.id, 'completed')}>Mark Completed</button>
                 </div>
               )}
 
@@ -187,13 +185,17 @@ export default function Requests() {
                 </div>
               )}
 
+              {req.status !== 'cancelled' && (
+                <button className="report-btn" onClick={() => setShowReport(req.id)}>
+                  <Flag size={12} /> Report
+                </button>
+              )}
+
               {showRating === req.id && (
                 <div className="rating-form">
                   <div className="rating-form-header">
                     <strong>Rate this exchange</strong>
-                    <button className="btn-icon" onClick={() => setShowRating(null)}>
-                      <X size={14} />
-                    </button>
+                    <button className="btn-icon" onClick={() => setShowRating(null)}><X size={14} /></button>
                   </div>
                   <div className="star-selector">
                     {[1, 2, 3, 4, 5].map((s) => (
@@ -213,12 +215,26 @@ export default function Requests() {
                     placeholder="Optional comment about the exchange"
                     rows={2}
                   />
-                  <button
-                    className="btn-primary btn-sm btn-full"
-                    onClick={() => submitRating(req)}
-                    disabled={ratingLoading}
-                  >
+                  <button className="btn-primary btn-sm btn-full" onClick={() => submitRating(req)} disabled={ratingLoading}>
                     {ratingLoading ? 'Submitting...' : 'Submit Rating'}
+                  </button>
+                </div>
+              )}
+
+              {showReport === req.id && (
+                <div className="rating-form">
+                  <div className="rating-form-header">
+                    <strong>Report this exchange</strong>
+                    <button className="btn-icon" onClick={() => setShowReport(null)}><X size={14} /></button>
+                  </div>
+                  <textarea
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    placeholder="Describe the issue"
+                    rows={2}
+                  />
+                  <button className="btn-primary btn-sm btn-full" onClick={() => submitReport(req)} disabled={reportLoading}>
+                    {reportLoading ? 'Submitting...' : 'Submit Report'}
                   </button>
                 </div>
               )}

@@ -169,17 +169,23 @@ export default function Dashboard() {
       setPhotoPreview(null);
 
       // Force refresh the auth context so the profile card updates
+      console.log('Calling refreshProfile...');
       await refreshProfile();
-      console.log('Refreshed auth context');
+      console.log('Refreshed auth context, new profile photo_url:', profile?.photo_url);
 
       // Re-fetch mom profile
       await fetchMomProfile();
       console.log('Fetched mom profile');
-    } catch (err) {
-      console.error('Profile update error:', err);
-    } finally {
+
+      // Force a small delay to ensure React renders with new state
+      await new Promise(r => setTimeout(r, 100));
+
+      // Only close after refresh is complete
       setUploading(false);
       setShowEditProfile(false);
+    } catch (err) {
+      console.error('Profile update error:', err);
+      setUploading(false);
     }
   };
 
@@ -228,7 +234,7 @@ export default function Dashboard() {
       <div className="dashboard-profile-card">
         <div className="profile-card-photo">
           {profile?.photo_url ? (
-            <img src={profile.photo_url} alt={profile.display_name} className="profile-photo-img" />
+            <img src={`${profile.photo_url}?t=${Date.now()}`} alt={profile.display_name} className="profile-photo-img" />
           ) : (
             <div className="profile-photo-placeholder">
               {profile?.display_name?.[0]?.toUpperCase() || 'M'}

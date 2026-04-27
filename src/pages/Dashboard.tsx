@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (profile?.id) fetchMomProfile();
@@ -171,11 +172,15 @@ export default function Dashboard() {
       // Force refresh the auth context so the profile card updates
       console.log('Calling refreshProfile...');
       await refreshProfile();
-      console.log('Refreshed auth context, new profile photo_url:', profile?.photo_url);
+      console.log('Refreshed auth context');
 
       // Re-fetch mom profile
       await fetchMomProfile();
       console.log('Fetched mom profile');
+
+      // Force re-render by updating key
+      setRefreshKey(k => k + 1);
+      console.log('Updated refresh key');
 
       // Force a small delay to ensure React renders with new state
       await new Promise(r => setTimeout(r, 100));
@@ -231,7 +236,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="dashboard-profile-card">
+      <div className="dashboard-profile-card" key={refreshKey}>
         <div className="profile-card-photo">
           {profile?.photo_url ? (
             <img src={`${profile.photo_url}?t=${Date.now()}`} alt={profile.display_name} className="profile-photo-img" />
@@ -266,7 +271,7 @@ export default function Dashboard() {
           {momProfile.bio && <p className="profile-bio">{momProfile.bio}</p>}
         </div>
         <div className="profile-card-actions">
-          <button className="btn-outline btn-sm" onClick={() => { setPhone(profile?.phone || ''); setPhotoPreview(null); setPhotoFile(null); setShowEditProfile(true); }}>
+          <button className="btn-outline btn-sm" onClick={() => { setPhone(profile?.phone || ''); setBio(momProfile.bio || ''); setLocationName(momProfile.location_name || ''); setPhotoPreview(null); setPhotoFile(null); setShowEditProfile(true); }}>
             <Edit3 size={14} /> Edit Profile
           </button>
           {exchanges.length > 0 && (

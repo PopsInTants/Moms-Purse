@@ -26,7 +26,6 @@ export default function Dashboard() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (profile?.id) fetchMomProfile();
@@ -135,12 +134,12 @@ export default function Dashboard() {
 
       // Upload photo if provided
       if (photoFile) {
-        const ext = photoFile.name.split('.').pop();
-        const path = `${profile.id}/avatar.${ext}`;
+        // Always use a fixed path to avoid case-sensitivity issues
+        const path = `${profile.id}/avatar`;
 
         const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(path, photoFile, { upsert: true });
+          .upload(path, photoFile, { upsert: true, contentType: photoFile.type });
 
         if (uploadError) {
           console.error('Upload error:', uploadError);
@@ -164,28 +163,14 @@ export default function Dashboard() {
         .update({ phone, photo_url: photoUrl })
         .eq('id', profile.id);
       if (profileError) console.error('Profile error:', profileError);
-      else console.log('Profile updated successfully');
 
       setPhotoFile(null);
       setPhotoPreview(null);
 
-      // Force refresh the auth context so the profile card updates
-      console.log('Calling refreshProfile...');
+      // Refresh profile from DB
       await refreshProfile();
-      console.log('Refreshed auth context');
-
-      // Re-fetch mom profile
       await fetchMomProfile();
-      console.log('Fetched mom profile');
 
-      // Force re-render by updating key
-      setRefreshKey(k => k + 1);
-      console.log('Updated refresh key');
-
-      // Force a small delay to ensure React renders with new state
-      await new Promise(r => setTimeout(r, 100));
-
-      // Only close after refresh is complete
       setUploading(false);
       setShowEditProfile(false);
     } catch (err) {
@@ -236,7 +221,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="dashboard-profile-card" key={refreshKey}>
+      <div className="dashboard-profile-card">
         <div className="profile-card-photo">
           {profile?.photo_url ? (
             <img src={`${profile.photo_url}?t=${Date.now()}`} alt={profile.display_name} className="profile-photo-img" />
